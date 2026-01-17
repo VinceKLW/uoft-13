@@ -24,6 +24,8 @@ namespace VRShop.Editor
         private const string SHOPIFY_MATERIAL_PATH = "Assets/VRShop/Materials/ShopifyLogoMaterial.mat";
         private const string BRAND_MATERIAL_PATH = "Assets/VRShop/Materials/BrandLogoMaterial.mat";
         private const string PRODUCTS_PREFAB_DIR = "Assets/VRShop/Prefabs/Products";
+        private const string BASKET_PREFAB_DIR = "Assets/VRShop/Prefabs/Basket";
+        private const string BASKET_PREFAB_PATH = "Assets/VRShop/Prefabs/Basket/Basket.prefab";
 
         [MenuItem("VRShop/Quick Setup (Create Everything)", false, 0)]
         public static void QuickSetup()
@@ -33,6 +35,7 @@ namespace VRShop.Editor
             {
                 builder.CreateAllMaterials();
                 builder.CreateProductPrefabs();
+                builder.CreateBasketPrefab();
                 builder.CreateScene();
                 Debug.Log("[VRShop] Setup complete! Press Play to test.");
             }
@@ -64,6 +67,7 @@ namespace VRShop.Editor
             {
                 CreateAllMaterials();
                 CreateProductPrefabs();
+                CreateBasketPrefab();
                 CreateScene();
             }
         }
@@ -228,10 +232,85 @@ namespace VRShop.Editor
                 instance.transform.localPosition = new Vector3(0, -bounds.min.y, 0);
 
                 RemoveCollidersRecursive(root);
+                EnsureBasketItemComponents(root, product.Name);
 
                 PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
                 DestroyImmediate(root);
             }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        private void CreateBasketPrefab()
+        {
+            EnsureDirectoryExists(BASKET_PREFAB_DIR);
+
+            var existingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BASKET_PREFAB_PATH);
+            if (existingPrefab != null)
+            {
+                AssetDatabase.DeleteAsset(BASKET_PREFAB_PATH);
+            }
+
+            var basketRoot = new GameObject("Basket");
+            var basketAttachment = basketRoot.AddComponent<BasketAttachment>();
+
+            var basketModel = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/VRShop/Models/Basket.fbx");
+            if (basketModel != null)
+            {
+                var basketVisual = (GameObject)PrefabUtility.InstantiatePrefab(basketModel);
+                basketVisual.name = "BasketVisual";
+                basketVisual.transform.SetParent(basketRoot.transform);
+                basketVisual.transform.localPosition = Vector3.zero;
+                basketVisual.transform.localRotation = Quaternion.identity;
+                basketVisual.transform.localScale = Vector3.one;
+
+                // Normalize scale to roughly match previous placeholder size
+                var visualBounds = CalculateBounds(basketVisual);
+                var maxExtent = Mathf.Max(visualBounds.size.x, visualBounds.size.y, visualBounds.size.z);
+                if (maxExtent > 0.0001f)
+                {
+                    var uniformScale = 0.35f / maxExtent;
+                    basketVisual.transform.localScale = Vector3.one * uniformScale;
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[VRShop] Basket model not found at Assets/VRShop/Models/Basket.fbx, using placeholder.");
+                var basketBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                basketBody.name = "BasketBody";
+                basketBody.transform.SetParent(basketRoot.transform);
+                basketBody.transform.localPosition = new Vector3(0f, -0.05f, 0f);
+                basketBody.transform.localScale = new Vector3(0.35f, 0.15f, 0.25f);
+            }
+
+            var basketBodyCollider = basketRoot.AddComponent<BoxCollider>();
+            basketBodyCollider.isTrigger = false;
+            var basketBounds = CalculateBounds(basketRoot);
+            basketBodyCollider.center = basketRoot.transform.InverseTransformPoint(basketBounds.center);
+            basketBodyCollider.size = basketBounds.size;
+
+            var basketContent = new GameObject("BasketContent");
+            basketContent.transform.SetParent(basketRoot.transform);
+            basketContent.transform.localPosition = Vector3.zero;
+
+            var basketTrigger = new GameObject("BasketTrigger");
+            basketTrigger.transform.SetParent(basketRoot.transform);
+            var triggerCollider = basketTrigger.AddComponent<BoxCollider>();
+            triggerCollider.isTrigger = true;
+            var triggerCenter = basketBounds.center + new Vector3(0f, basketBounds.extents.y * 0.5f, 0f);
+            basketTrigger.transform.localPosition = basketRoot.transform.InverseTransformPoint(triggerCenter);
+            triggerCollider.size = new Vector3(basketBounds.size.x * 0.8f, basketBounds.size.y * 0.6f, basketBounds.size.z * 0.8f);
+
+            var triggerScript = basketTrigger.AddComponent<BasketTrigger>();
+            triggerScript.basketRoot = basketRoot.transform;
+            triggerScript.itemContainer = basketContent.transform;
+            triggerScript.itemSpacing = new Vector3(0.08f, 0.06f, 0.08f);
+
+            basketAttachment.basketRoot = basketRoot.transform;
+
+            PrefabUtility.SaveAsPrefabAsset(basketRoot, BASKET_PREFAB_PATH);
+            DestroyImmediate(basketRoot);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -313,6 +392,31 @@ namespace VRShop.Editor
             camera.nearClipPlane = 0.1f;
             cameraObj.AddComponent<StationaryCameraController>();
             cameraObj.AddComponent<AudioListener>();
+
+            // Hand anchor + basket
+            var handAnchor = new GameObject("HandAnchor");
+            handAnchor.transform.SetParent(cameraObj.transform);
+            handAnchor.transform.localPosition = new Vector3(0.25f, -0.32f, 0.4f);
+            handAnchor.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+
+            var basketPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BASKET_PREFAB_PATH);
+            if (basketPrefab != null)
+            {
+                var basketInstance = (GameObject)PrefabUtility.InstantiatePrefab(basketPrefab);
+                basketInstance.transform.SetParent(handAnchor.transform);
+                basketInstance.transform.localPosition = Vector3.zero;
+                basketInstance.transform.localRotation = Quaternion.identity;
+
+                var attachment = basketInstance.GetComponent<BasketAttachment>();
+                if (attachment != null)
+                {
+                    attachment.anchor = handAnchor.transform;
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[VRShop] Basket prefab not found at {BASKET_PREFAB_PATH}");
+            }
 
             // ShopDataManager not needed when logos are hardcoded
 
@@ -552,6 +656,36 @@ namespace VRShop.Editor
             {
                 DestroyImmediate(collider);
             }
+        }
+
+        private static void EnsureBasketItemComponents(GameObject root, string itemId)
+        {
+            var basketItem = root.GetComponent<BasketItem>();
+            if (basketItem == null)
+            {
+                basketItem = root.AddComponent<BasketItem>();
+            }
+
+            basketItem.itemId = itemId;
+            basketItem.displayName = itemId.Replace("Product_", string.Empty);
+            basketItem.canBeCollected = true;
+
+            var collider = root.GetComponent<Collider>();
+            if (collider == null)
+            {
+                var boxCollider = root.AddComponent<BoxCollider>();
+                var bounds = CalculateBounds(root);
+                boxCollider.center = root.transform.InverseTransformPoint(bounds.center);
+                boxCollider.size = bounds.size;
+            }
+
+            var rigidbody = root.GetComponent<Rigidbody>();
+            if (rigidbody == null)
+            {
+                rigidbody = root.AddComponent<Rigidbody>();
+            }
+            rigidbody.isKinematic = true;
+            rigidbody.useGravity = false;
         }
 
         private static Bounds CalculateBounds(GameObject root)
