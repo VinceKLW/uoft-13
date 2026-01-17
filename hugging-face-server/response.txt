@@ -1,0 +1,42 @@
+(
+    {
+        "value": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\gradio\\eecb4b9f3dfefbdbcb686a9dcbccc73c111bcad369af546ffb09dd6f3142f65f\\white_mesh.obj",
+        "__type__": "update"
+    },
+    {
+        "value": "C:\\Users\\Administrator\\AppData\\Local\\Temp\\gradio\\2df2881c9965da7555b586f6cd5d44d57594040bb3fcaaa39ce1f0fef3c7b3d9\\textured_mesh.glb",
+        "__type__": "update"
+    },
+    """
+        <div style='height: 650; width: 100%;'>
+        <iframe src="/static/b6775b42-d130-4cae-b93a-801015e5348e/textured_mesh.html" height="650" width="100%" frameborder="0"></iframe>
+        </div>
+    """,
+    {
+        "model": {
+            "shapegen": "tencent/Hunyuan3D-2.1/hunyuan3d-dit-v2-1",
+            "texgen": "tencent/Hunyuan3D-2.1"
+        },
+        "params": {
+            "caption": null,
+            "steps": 30,
+            "guidance_scale": 5,
+            "seed": 9877972,
+            "octree_resolution": 256,
+            "check_box_rembg": true,
+            "num_chunks": 8000
+        },
+        "number_of_faces": 351632,
+        "number_of_vertices": 175807,
+        "time": {
+            "remove background": 1.191737413406372,
+            "shape generation": 13.095650672912598,
+            "export to trimesh": 0.08638691902160645,
+            "face reduction": 5.053306579589844,
+            "texture generation": 99.93308997154236,
+            "convert textured OBJ to GLB": 0.860532283782959,
+            "total": 120.23962497711182
+        }
+    },
+    9877972
+)
