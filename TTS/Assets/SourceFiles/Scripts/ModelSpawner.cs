@@ -705,6 +705,26 @@ public class ModelSpawner : MonoBehaviour
         // Try to use TextMeshPro if available, otherwise use TextMesh
         #if TMP_PRESENT
         TMPro.TextMeshPro textMesh = textObject.AddComponent<TMPro.TextMeshPro>();
+        
+        // Assign default font if not set
+        if (textMesh.font == null)
+        {
+            var defaultFont = TMPro.TMP_Settings.defaultFontAsset;
+            if (defaultFont != null)
+            {
+                textMesh.font = defaultFont;
+            }
+            else
+            {
+                // Try loading from Resources
+                defaultFont = Resources.Load<TMPro.TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+                if (defaultFont != null)
+                {
+                    textMesh.font = defaultFont;
+                }
+            }
+        }
+        
         textMesh.text = text;
         textMesh.fontSize = fontSize;
         textMesh.alignment = TMPro.TextAlignmentOptions.Center;
