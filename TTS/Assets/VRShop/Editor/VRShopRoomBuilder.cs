@@ -22,6 +22,7 @@ namespace VRShop.Editor
         private const string EMISSIVE_PANEL_MATERIAL_PATH = "Assets/VRShop/Materials/EmissivePanelMaterial.mat";
         private const string SHOPIFY_MATERIAL_PATH = "Assets/VRShop/Materials/ShopifyLogoMaterial.mat";
         private const string BRAND_MATERIAL_PATH = "Assets/VRShop/Materials/BrandLogoMaterial.mat";
+        private const string PRODUCTS_PREFAB_DIR = "Assets/VRShop/Prefabs/Products";
 
         [MenuItem("VRShop/Quick Setup (Create Everything)", false, 0)]
         public static void QuickSetup()
@@ -30,6 +31,7 @@ namespace VRShop.Editor
             try
             {
                 builder.CreateAllMaterials();
+                builder.CreateProductPrefabs();
                 builder.CreateScene();
                 Debug.Log("[VRShop] Setup complete! Press Play to test.");
             }
@@ -60,6 +62,7 @@ namespace VRShop.Editor
             if (GUILayout.Button("Create Everything", GUILayout.Height(40)))
             {
                 CreateAllMaterials();
+                CreateProductPrefabs();
                 CreateScene();
             }
         }
@@ -182,6 +185,57 @@ namespace VRShop.Editor
             Debug.Log("[VRShop] Materials created");
         }
 
+        private void CreateProductPrefabs()
+        {
+            EnsureDirectoryExists(PRODUCTS_PREFAB_DIR);
+
+            var products = new[]
+            {
+                new ProductDefinition("Product_Box_Small", "Assets/SourceFiles/Models/Box_350x250x200_Mesh.fbx", 0.35f),
+                new ProductDefinition("Product_Box_Tall", "Assets/SourceFiles/Models/Box_350x250x300_Mesh.fbx", 0.4f),
+                new ProductDefinition("Product_Star", "Assets/SourceFiles/Models/Star.FBX", 0.3f),
+                new ProductDefinition("Product_CubeHollow", "Assets/SourceFiles/Models/CubeHollow.FBX", 0.35f),
+                new ProductDefinition("Product_Platform", "Assets/SourceFiles/Models/Platform.FBX", 0.5f),
+            };
+
+            foreach (var product in products)
+            {
+                var modelAsset = AssetDatabase.LoadAssetAtPath<GameObject>(product.ModelPath);
+                if (modelAsset == null)
+                {
+                    Debug.LogWarning($"[VRShop] Model not found: {product.ModelPath}");
+                    continue;
+                }
+
+                var prefabPath = $"{PRODUCTS_PREFAB_DIR}/{product.Name}.prefab";
+                if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) != null)
+                {
+                    AssetDatabase.DeleteAsset(prefabPath);
+                }
+
+                var root = new GameObject(product.Name);
+                var instance = (GameObject)PrefabUtility.InstantiatePrefab(modelAsset);
+                instance.transform.SetParent(root.transform);
+                instance.transform.localPosition = Vector3.zero;
+                instance.transform.localRotation = Quaternion.identity;
+                instance.transform.localScale = Vector3.one;
+
+                var scale = CalculateUniformScale(instance, product.TargetSize);
+                instance.transform.localScale = scale;
+
+                var bounds = CalculateBounds(instance);
+                instance.transform.localPosition = new Vector3(0, -bounds.min.y, 0);
+
+                RemoveCollidersRecursive(root);
+
+                PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+                DestroyImmediate(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
         private void CreateScene()
         {
             EnsureDirectoryExists("Assets/VRShop/Scenes");
@@ -294,6 +348,13 @@ namespace VRShop.Editor
             CreateFillPointLight(room.transform, "FillTable_Center", new Vector3(0f, 2.2f, 0f), 250f, 3.5f);
             CreateFillPointLight(room.transform, "FillTable_Left", new Vector3(-2.2f, 2.1f, 0.6f), 220f, 3.0f);
             CreateFillPointLight(room.transform, "FillTable_Right", new Vector3(2.2f, 2.1f, -0.6f), 220f, 3.0f);
+
+            // Place product models
+            PlaceProductPrefab("Product_Box_Small", room.transform, new Vector3(0f, 0.95f, 0f));
+            PlaceProductPrefab("Product_Box_Tall", room.transform, new Vector3(-2.2f, 0.95f, 0.6f));
+            PlaceProductPrefab("Product_Star", room.transform, new Vector3(2.2f, 0.95f, -0.6f));
+            PlaceProductPrefab("Product_CubeHollow", room.transform, new Vector3(-4.0f, 1.3f, 0.6f));
+            PlaceProductPrefab("Product_Platform", room.transform, new Vector3(4.0f, 1.3f, -0.6f));
 
             EditorSceneManager.MarkSceneDirty(scene);
             bool saved = EditorSceneManager.SaveScene(scene, SCENE_PATH, true);
@@ -408,6 +469,76 @@ namespace VRShop.Editor
             }
             var col = shelf.GetComponent<Collider>();
             if (col) DestroyImmediate(col);
+        }
+
+        private void PlaceProductPrefab(string prefabName, Transform parent, Vector3 position)
+        {
+            var prefabPath = $"{PRODUCTS_PREFAB_DIR}/{prefabName}.prefab";
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning($"[VRShop] Product prefab not found: {prefabPath}");
+                return;
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            instance.name = prefabName;
+            instance.transform.SetParent(parent);
+            instance.transform.localPosition = position;
+            instance.transform.localRotation = Quaternion.identity;
+        }
+
+        private static void RemoveCollidersRecursive(GameObject root)
+        {
+            var colliders = root.GetComponentsInChildren<Collider>();
+            foreach (var collider in colliders)
+            {
+                DestroyImmediate(collider);
+            }
+        }
+
+        private static Bounds CalculateBounds(GameObject root)
+        {
+            var renderers = root.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0)
+            {
+                return new Bounds(Vector3.zero, Vector3.one);
+            }
+
+            var bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+            {
+                bounds.Encapsulate(renderers[i].bounds);
+            }
+
+            return bounds;
+        }
+
+        private static Vector3 CalculateUniformScale(GameObject root, float targetSize)
+        {
+            var bounds = CalculateBounds(root);
+            var max = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
+            if (max <= 0.0001f)
+            {
+                return Vector3.one;
+            }
+
+            var scale = targetSize / max;
+            return Vector3.one * scale;
+        }
+
+        private readonly struct ProductDefinition
+        {
+            public ProductDefinition(string name, string modelPath, float targetSize)
+            {
+                Name = name;
+                ModelPath = modelPath;
+                TargetSize = targetSize;
+            }
+
+            public string Name { get; }
+            public string ModelPath { get; }
+            public float TargetSize { get; }
         }
 
         private void EnsureDirectoryExists(string path)
