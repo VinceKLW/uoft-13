@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.Rendering;
+using VRShop;
 
 namespace VRShop.Editor
 {
@@ -356,6 +357,9 @@ namespace VRShop.Editor
             PlaceProductPrefab("Product_CubeHollow", room.transform, new Vector3(-4.0f, 1.3f, 0.6f));
             PlaceProductPrefab("Product_Platform", room.transform, new Vector3(4.0f, 1.3f, -0.6f));
 
+            // Place Shoppy model with wanderer script
+            PlaceShoppyModel(room.transform);
+
             EditorSceneManager.MarkSceneDirty(scene);
             bool saved = EditorSceneManager.SaveScene(scene, SCENE_PATH, true);
             if (!saved)
@@ -486,6 +490,59 @@ namespace VRShop.Editor
             instance.transform.SetParent(parent);
             instance.transform.localPosition = position;
             instance.transform.localRotation = Quaternion.identity;
+        }
+
+        private void PlaceShoppyModel(Transform parent)
+        {
+            const string SHOPPY_MODEL_PATH = "Assets/Models/shoppy_model.obj";
+            var modelAsset = AssetDatabase.LoadAssetAtPath<GameObject>(SHOPPY_MODEL_PATH);
+            
+            if (modelAsset == null)
+            {
+                Debug.LogWarning($"[VRShop] Shoppy model not found at: {SHOPPY_MODEL_PATH}");
+                return;
+            }
+
+            // Create root GameObject for Shoppy
+            var shoppyRoot = new GameObject("ShoppyModel");
+            shoppyRoot.transform.SetParent(parent);
+            // Start at a random position within the wander area
+            float startX = Random.Range(-roomWidth * 0.3f, roomWidth * 0.3f);
+            float startZ = Random.Range(-roomDepth * 0.3f, roomDepth * 0.3f);
+            shoppyRoot.transform.localPosition = new Vector3(startX, 0f, startZ);
+            shoppyRoot.transform.localRotation = Quaternion.identity;
+
+            // Instantiate the model
+            var modelInstance = (GameObject)PrefabUtility.InstantiatePrefab(modelAsset);
+            modelInstance.transform.SetParent(shoppyRoot.transform);
+            modelInstance.transform.localPosition = Vector3.zero;
+            modelInstance.transform.localRotation = Quaternion.identity;
+            modelInstance.transform.localScale = Vector3.one;
+
+            // Calculate scale to make it a reasonable size (about 1.5 units tall)
+            var bounds = CalculateBounds(modelInstance);
+            var targetHeight = 1.5f;
+            if (bounds.size.y > 0.001f)
+            {
+                var scale = targetHeight / bounds.size.y;
+                modelInstance.transform.localScale = Vector3.one * scale;
+            }
+
+            // Position model so bottom is at ground level
+            bounds = CalculateBounds(modelInstance);
+            modelInstance.transform.localPosition = new Vector3(0, -bounds.min.y, 0);
+
+            // Add ShoppyWanderer script
+            var wanderer = shoppyRoot.AddComponent<ShoppyWanderer>();
+            
+            // Configure wanderer settings using SerializedObject
+            var serializedWanderer = new SerializedObject(wanderer);
+            serializedWanderer.FindProperty("wanderCenter").vector3Value = Vector3.zero;
+            serializedWanderer.FindProperty("wanderSize").vector2Value = new Vector2(roomWidth * 0.8f, roomDepth * 0.8f);
+            serializedWanderer.FindProperty("groundHeight").floatValue = 0f;
+            serializedWanderer.ApplyModifiedProperties();
+
+            Debug.Log("[VRShop] Shoppy model placed with wanderer script!");
         }
 
         private static void RemoveCollidersRecursive(GameObject root)
