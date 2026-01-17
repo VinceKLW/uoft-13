@@ -6,7 +6,7 @@ using TMPro;
 
 public class TTSManager : MonoBehaviour
 {
-    [SerializeField] private string openAIKey = "";
+    [SerializeField] private string openAIKey = "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";
     [SerializeField] private TextMeshProUGUI speechText;
     [SerializeField] private GameObject speechBubble;
     [SerializeField] private float bubbleDisplayTime = 5f;
