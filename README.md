@@ -3,6 +3,7 @@
 An immersive VR shopping experience built for **Meta Quest 3 🥽**, powered by **Shopify Storefront API 🚀**. Step into a virtual store where products come to life, complete with an **AI-powered shopping assistant**!
 
 Youtube: https://youtu.be/rSQTpfXWax8
+
 Devpost: https://devpost.com/software/sho-ify
 
 <img width="1540" height="643" alt="image" src="https://github.com/user-attachments/assets/17cbad58-2e03-4328-a425-e0f36ed63831" />
