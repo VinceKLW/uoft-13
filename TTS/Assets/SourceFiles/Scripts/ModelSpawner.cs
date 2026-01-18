@@ -134,7 +134,7 @@ public class ModelSpawner : MonoBehaviour
 
     [Header("Spawn Settings")]
     [Tooltip("Distance from center to left/right product rows")]
-    public float sideDistance = 5f;
+    public float sideDistance = 2.5f;
     
     [Tooltip("Spacing between products in the same row")]
     public float rowSpacing = 6f;

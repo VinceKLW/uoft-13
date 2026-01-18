@@ -629,9 +629,9 @@ MonoBehaviour:
   sensitivityY: 2
   minVerticalAngle: -89
   maxVerticalAngle: 89
-  lockCursor: 1
-  hideCursor: 1
-  vrModeEnabled: 0
+  lockCursor: 0
+  hideCursor: 0
+  vrModeEnabled: 1
 --- !u!20 &53593027
 Camera:
   m_ObjectHideFlags: 0
