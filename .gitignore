@@ -1,6 +1,8 @@
 # This .gitignore file should be placed at the root of your Unity project directory
 # https://github.com/github/gitignore/blob/main/Unity.gitignore
 
+venv/
+
 # Unity generated files
 [Ll]ibrary/
 [Tt]emp/

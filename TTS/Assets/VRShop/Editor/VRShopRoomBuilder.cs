@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.Rendering;
+using VRShop;
 
 namespace VRShop.Editor
 {
@@ -22,6 +23,9 @@ namespace VRShop.Editor
         private const string EMISSIVE_PANEL_MATERIAL_PATH = "Assets/VRShop/Materials/EmissivePanelMaterial.mat";
         private const string SHOPIFY_MATERIAL_PATH = "Assets/VRShop/Materials/ShopifyLogoMaterial.mat";
         private const string BRAND_MATERIAL_PATH = "Assets/VRShop/Materials/BrandLogoMaterial.mat";
+        private const string PRODUCTS_PREFAB_DIR = "Assets/VRShop/Prefabs/Products";
+        private const string BASKET_PREFAB_DIR = "Assets/VRShop/Prefabs/Basket";
+        private const string BASKET_PREFAB_PATH = "Assets/VRShop/Prefabs/Basket/Basket.prefab";
 
         [MenuItem("VRShop/Quick Setup (Create Everything)", false, 0)]
         public static void QuickSetup()
@@ -30,6 +34,8 @@ namespace VRShop.Editor
             try
             {
                 builder.CreateAllMaterials();
+                builder.CreateProductPrefabs();
+                builder.CreateBasketPrefab();
                 builder.CreateScene();
                 Debug.Log("[VRShop] Setup complete! Press Play to test.");
             }
@@ -60,6 +66,8 @@ namespace VRShop.Editor
             if (GUILayout.Button("Create Everything", GUILayout.Height(40)))
             {
                 CreateAllMaterials();
+                CreateProductPrefabs();
+                CreateBasketPrefab();
                 CreateScene();
             }
         }
@@ -182,6 +190,132 @@ namespace VRShop.Editor
             Debug.Log("[VRShop] Materials created");
         }
 
+        private void CreateProductPrefabs()
+        {
+            EnsureDirectoryExists(PRODUCTS_PREFAB_DIR);
+
+            var products = new[]
+            {
+                new ProductDefinition("Product_Box_Small", "Assets/SourceFiles/Models/Box_350x250x200_Mesh.fbx", 0.35f),
+                new ProductDefinition("Product_Box_Tall", "Assets/SourceFiles/Models/Box_350x250x300_Mesh.fbx", 0.4f),
+                new ProductDefinition("Product_Star", "Assets/SourceFiles/Models/Star.FBX", 0.3f),
+                new ProductDefinition("Product_CubeHollow", "Assets/SourceFiles/Models/CubeHollow.FBX", 0.35f),
+                new ProductDefinition("Product_Platform", "Assets/SourceFiles/Models/Platform.FBX", 0.5f),
+            };
+
+            foreach (var product in products)
+            {
+                var modelAsset = AssetDatabase.LoadAssetAtPath<GameObject>(product.ModelPath);
+                if (modelAsset == null)
+                {
+                    Debug.LogWarning($"[VRShop] Model not found: {product.ModelPath}");
+                    continue;
+                }
+
+                var prefabPath = $"{PRODUCTS_PREFAB_DIR}/{product.Name}.prefab";
+                if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) != null)
+                {
+                    AssetDatabase.DeleteAsset(prefabPath);
+                }
+
+                var root = new GameObject(product.Name);
+                var instance = (GameObject)PrefabUtility.InstantiatePrefab(modelAsset);
+                instance.transform.SetParent(root.transform);
+                instance.transform.localPosition = Vector3.zero;
+                instance.transform.localRotation = Quaternion.identity;
+                instance.transform.localScale = Vector3.one;
+
+                var scale = CalculateUniformScale(instance, product.TargetSize);
+                instance.transform.localScale = scale;
+
+                var bounds = CalculateBounds(instance);
+                instance.transform.localPosition = new Vector3(0, -bounds.min.y, 0);
+
+                RemoveCollidersRecursive(root);
+                EnsureBasketItemComponents(root, product.Name);
+
+                PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+                DestroyImmediate(root);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        private void CreateBasketPrefab()
+        {
+            EnsureDirectoryExists(BASKET_PREFAB_DIR);
+
+            var existingPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BASKET_PREFAB_PATH);
+            if (existingPrefab != null)
+            {
+                AssetDatabase.DeleteAsset(BASKET_PREFAB_PATH);
+            }
+
+            var basketRoot = new GameObject("Basket");
+            var basketAttachment = basketRoot.AddComponent<BasketAttachment>();
+
+            var basketModel = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/VRShop/Models/Basket.fbx");
+            if (basketModel != null)
+            {
+                var basketVisual = (GameObject)PrefabUtility.InstantiatePrefab(basketModel);
+                basketVisual.name = "BasketVisual";
+                basketVisual.transform.SetParent(basketRoot.transform);
+                basketVisual.transform.localPosition = Vector3.zero;
+                basketVisual.transform.localRotation = Quaternion.identity;
+                basketVisual.transform.localScale = Vector3.one;
+
+                // Normalize scale to roughly match previous placeholder size
+                var visualBounds = CalculateBounds(basketVisual);
+                var maxExtent = Mathf.Max(visualBounds.size.x, visualBounds.size.y, visualBounds.size.z);
+                if (maxExtent > 0.0001f)
+                {
+                    var uniformScale = 0.35f / maxExtent;
+                    basketVisual.transform.localScale = Vector3.one * uniformScale;
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[VRShop] Basket model not found at Assets/VRShop/Models/Basket.fbx, using placeholder.");
+                var basketBody = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                basketBody.name = "BasketBody";
+                basketBody.transform.SetParent(basketRoot.transform);
+                basketBody.transform.localPosition = new Vector3(0f, -0.05f, 0f);
+                basketBody.transform.localScale = new Vector3(0.35f, 0.15f, 0.25f);
+            }
+
+            var basketBodyCollider = basketRoot.AddComponent<BoxCollider>();
+            basketBodyCollider.isTrigger = false;
+            var basketBounds = CalculateBounds(basketRoot);
+            basketBodyCollider.center = basketRoot.transform.InverseTransformPoint(basketBounds.center);
+            basketBodyCollider.size = basketBounds.size;
+
+            var basketContent = new GameObject("BasketContent");
+            basketContent.transform.SetParent(basketRoot.transform);
+            basketContent.transform.localPosition = Vector3.zero;
+
+            var basketTrigger = new GameObject("BasketTrigger");
+            basketTrigger.transform.SetParent(basketRoot.transform);
+            var triggerCollider = basketTrigger.AddComponent<BoxCollider>();
+            triggerCollider.isTrigger = true;
+            var triggerCenter = basketBounds.center + new Vector3(0f, basketBounds.extents.y * 0.5f, 0f);
+            basketTrigger.transform.localPosition = basketRoot.transform.InverseTransformPoint(triggerCenter);
+            triggerCollider.size = new Vector3(basketBounds.size.x * 0.8f, basketBounds.size.y * 0.6f, basketBounds.size.z * 0.8f);
+
+            var triggerScript = basketTrigger.AddComponent<BasketTrigger>();
+            triggerScript.basketRoot = basketRoot.transform;
+            triggerScript.itemContainer = basketContent.transform;
+            triggerScript.itemSpacing = new Vector3(0.08f, 0.06f, 0.08f);
+
+            basketAttachment.basketRoot = basketRoot.transform;
+
+            PrefabUtility.SaveAsPrefabAsset(basketRoot, BASKET_PREFAB_PATH);
+            DestroyImmediate(basketRoot);
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
         private void CreateScene()
         {
             EnsureDirectoryExists("Assets/VRShop/Scenes");
@@ -259,6 +393,31 @@ namespace VRShop.Editor
             cameraObj.AddComponent<StationaryCameraController>();
             cameraObj.AddComponent<AudioListener>();
 
+            // Hand anchor + basket
+            var handAnchor = new GameObject("HandAnchor");
+            handAnchor.transform.SetParent(cameraObj.transform);
+            handAnchor.transform.localPosition = new Vector3(0.25f, -0.32f, 0.4f);
+            handAnchor.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+
+            var basketPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BASKET_PREFAB_PATH);
+            if (basketPrefab != null)
+            {
+                var basketInstance = (GameObject)PrefabUtility.InstantiatePrefab(basketPrefab);
+                basketInstance.transform.SetParent(handAnchor.transform);
+                basketInstance.transform.localPosition = Vector3.zero;
+                basketInstance.transform.localRotation = Quaternion.identity;
+
+                var attachment = basketInstance.GetComponent<BasketAttachment>();
+                if (attachment != null)
+                {
+                    attachment.anchor = handAnchor.transform;
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[VRShop] Basket prefab not found at {BASKET_PREFAB_PATH}");
+            }
+
             // ShopDataManager not needed when logos are hardcoded
 
             // Lighting - modern showroom feel (softer and wider)
@@ -294,6 +453,16 @@ namespace VRShop.Editor
             CreateFillPointLight(room.transform, "FillTable_Center", new Vector3(0f, 2.2f, 0f), 250f, 3.5f);
             CreateFillPointLight(room.transform, "FillTable_Left", new Vector3(-2.2f, 2.1f, 0.6f), 220f, 3.0f);
             CreateFillPointLight(room.transform, "FillTable_Right", new Vector3(2.2f, 2.1f, -0.6f), 220f, 3.0f);
+
+            // Place product models
+            PlaceProductPrefab("Product_Box_Small", room.transform, new Vector3(0f, 0.95f, 0f));
+            PlaceProductPrefab("Product_Box_Tall", room.transform, new Vector3(-2.2f, 0.95f, 0.6f));
+            PlaceProductPrefab("Product_Star", room.transform, new Vector3(2.2f, 0.95f, -0.6f));
+            PlaceProductPrefab("Product_CubeHollow", room.transform, new Vector3(-4.0f, 1.3f, 0.6f));
+            PlaceProductPrefab("Product_Platform", room.transform, new Vector3(4.0f, 1.3f, -0.6f));
+
+            // Place Shoppy model with wanderer script
+            PlaceShoppyModel(room.transform);
 
             EditorSceneManager.MarkSceneDirty(scene);
             bool saved = EditorSceneManager.SaveScene(scene, SCENE_PATH, true);
@@ -408,6 +577,159 @@ namespace VRShop.Editor
             }
             var col = shelf.GetComponent<Collider>();
             if (col) DestroyImmediate(col);
+        }
+
+        private void PlaceProductPrefab(string prefabName, Transform parent, Vector3 position)
+        {
+            var prefabPath = $"{PRODUCTS_PREFAB_DIR}/{prefabName}.prefab";
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning($"[VRShop] Product prefab not found: {prefabPath}");
+                return;
+            }
+
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            instance.name = prefabName;
+            instance.transform.SetParent(parent);
+            instance.transform.localPosition = position;
+            instance.transform.localRotation = Quaternion.identity;
+        }
+
+        private void PlaceShoppyModel(Transform parent)
+        {
+            const string SHOPPY_MODEL_PATH = "Assets/Models/shoppy_model.obj";
+            var modelAsset = AssetDatabase.LoadAssetAtPath<GameObject>(SHOPPY_MODEL_PATH);
+            
+            if (modelAsset == null)
+            {
+                Debug.LogWarning($"[VRShop] Shoppy model not found at: {SHOPPY_MODEL_PATH}");
+                return;
+            }
+
+            // Create root GameObject for Shoppy
+            var shoppyRoot = new GameObject("ShoppyModel");
+            shoppyRoot.transform.SetParent(parent);
+            // Start at a random position within the wander area
+            float startX = Random.Range(-roomWidth * 0.3f, roomWidth * 0.3f);
+            float startZ = Random.Range(-roomDepth * 0.3f, roomDepth * 0.3f);
+            shoppyRoot.transform.localPosition = new Vector3(startX, 0f, startZ);
+            shoppyRoot.transform.localRotation = Quaternion.identity;
+
+            // Instantiate the model
+            var modelInstance = (GameObject)PrefabUtility.InstantiatePrefab(modelAsset);
+            modelInstance.transform.SetParent(shoppyRoot.transform);
+            modelInstance.transform.localPosition = Vector3.zero;
+            modelInstance.transform.localRotation = Quaternion.identity;
+            modelInstance.transform.localScale = Vector3.one;
+
+            // Calculate scale to make it a reasonable size (about 1.5 units tall)
+            var bounds = CalculateBounds(modelInstance);
+            var targetHeight = 1.5f;
+            if (bounds.size.y > 0.001f)
+            {
+                var scale = targetHeight / bounds.size.y;
+                modelInstance.transform.localScale = Vector3.one * scale;
+            }
+
+            // Position model so bottom is at ground level
+            bounds = CalculateBounds(modelInstance);
+            modelInstance.transform.localPosition = new Vector3(0, -bounds.min.y, 0);
+
+            // Add ShoppyWanderer script
+            var wanderer = shoppyRoot.AddComponent<ShoppyWanderer>();
+            
+            // Configure wanderer settings using SerializedObject
+            var serializedWanderer = new SerializedObject(wanderer);
+            serializedWanderer.FindProperty("wanderCenter").vector3Value = Vector3.zero;
+            serializedWanderer.FindProperty("wanderSize").vector2Value = new Vector2(roomWidth * 0.8f, roomDepth * 0.8f);
+            serializedWanderer.FindProperty("groundHeight").floatValue = 0f;
+            serializedWanderer.ApplyModifiedProperties();
+
+            Debug.Log("[VRShop] Shoppy model placed with wanderer script!");
+        }
+
+        private static void RemoveCollidersRecursive(GameObject root)
+        {
+            var colliders = root.GetComponentsInChildren<Collider>();
+            foreach (var collider in colliders)
+            {
+                DestroyImmediate(collider);
+            }
+        }
+
+        private static void EnsureBasketItemComponents(GameObject root, string itemId)
+        {
+            var basketItem = root.GetComponent<BasketItem>();
+            if (basketItem == null)
+            {
+                basketItem = root.AddComponent<BasketItem>();
+            }
+
+            basketItem.itemId = itemId;
+            basketItem.displayName = itemId.Replace("Product_", string.Empty);
+            basketItem.canBeCollected = true;
+
+            var collider = root.GetComponent<Collider>();
+            if (collider == null)
+            {
+                var boxCollider = root.AddComponent<BoxCollider>();
+                var bounds = CalculateBounds(root);
+                boxCollider.center = root.transform.InverseTransformPoint(bounds.center);
+                boxCollider.size = bounds.size;
+            }
+
+            var rigidbody = root.GetComponent<Rigidbody>();
+            if (rigidbody == null)
+            {
+                rigidbody = root.AddComponent<Rigidbody>();
+            }
+            rigidbody.isKinematic = true;
+            rigidbody.useGravity = false;
+        }
+
+        private static Bounds CalculateBounds(GameObject root)
+        {
+            var renderers = root.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0)
+            {
+                return new Bounds(Vector3.zero, Vector3.one);
+            }
+
+            var bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+            {
+                bounds.Encapsulate(renderers[i].bounds);
+            }
+
+            return bounds;
+        }
+
+        private static Vector3 CalculateUniformScale(GameObject root, float targetSize)
+        {
+            var bounds = CalculateBounds(root);
+            var max = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
+            if (max <= 0.0001f)
+            {
+                return Vector3.one;
+            }
+
+            var scale = targetSize / max;
+            return Vector3.one * scale;
+        }
+
+        private readonly struct ProductDefinition
+        {
+            public ProductDefinition(string name, string modelPath, float targetSize)
+            {
+                Name = name;
+                ModelPath = modelPath;
+                TargetSize = targetSize;
+            }
+
+            public string Name { get; }
+            public string ModelPath { get; }
+            public float TargetSize { get; }
         }
 
         private void EnsureDirectoryExists(string path)

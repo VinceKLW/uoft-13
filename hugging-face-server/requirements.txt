@@ -1,0 +1,19 @@
+# Flask wrapper for Hugging Face 3D Generation
+flask>=3.0.0
+flask-cors>=4.0.0
+werkzeug>=3.0.0
+requests>=2.31.0
+
+# Hugging Face integration
+gradio_client>=1.0.0
+huggingface_hub>=0.20.0
+
+# 3D model processing
+trimesh>=4.0.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# Optional: for better mesh processing
+# pyglet>=2.0.0
+# scipy>=1.11.0
+

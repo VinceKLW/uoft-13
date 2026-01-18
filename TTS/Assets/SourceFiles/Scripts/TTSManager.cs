@@ -46,6 +46,27 @@ public class TTSManager : MonoBehaviour
             audioSource = gameObject.AddComponent<AudioSource>();
         }
         
+        // Ensure TextMeshPro has a font asset assigned
+        if (speechText != null && speechText.font == null)
+        {
+            // Try to find and assign a default TMP font
+            var defaultFont = Resources.Load<TMPro.TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
+            if (defaultFont == null)
+            {
+                // Try alternative path
+                defaultFont = TMPro.TMP_Settings.defaultFontAsset;
+            }
+            if (defaultFont != null)
+            {
+                speechText.font = defaultFont;
+                Debug.Log("[TTSManager] Assigned default font to speech text");
+            }
+            else
+            {
+                Debug.LogWarning("[TTSManager] Could not find default TMP font asset. Please assign one manually in the Inspector.");
+            }
+        }
+        
         // Hide bubble at start
         if (speechBubble != null)
         {
