@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &2134624829229235651
+--- !u!1 &1864048128099271102
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,7 +8,7 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2229100257013664648}
+  - component: {fileID: 3887165394104910782}
   m_Layer: 0
   m_Name: BasketContent
   m_TagString: Untagged
@@ -16,22 +16,22 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &2229100257013664648
+--- !u!4 &3887165394104910782
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2134624829229235651}
+  m_GameObject: {fileID: 1864048128099271102}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 352581250655710789}
+  m_Father: {fileID: 8087356193274368556}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &4451715854436321269
+--- !u!1 &6380300244366770394
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -39,82 +39,9 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 352581250655710789}
-  - component: {fileID: 527788896314782532}
-  - component: {fileID: 5840686041990642848}
-  m_Layer: 0
-  m_Name: Basket
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &352581250655710789
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4451715854436321269}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1449749044212291063}
-  - {fileID: 2229100257013664648}
-  - {fileID: 1551828097517563420}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &527788896314782532
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4451715854436321269}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 71a09b45af01b432aad76cfda36ea2c3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VRShop.BasketAttachment
-  anchor: {fileID: 0}
-  basketRoot: {fileID: 352581250655710789}
-  positionOffset: {x: 0, y: 0, z: 0}
-  rotationOffset: {x: 0, y: 0, z: 0}
---- !u!65 &5840686041990642848
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4451715854436321269}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.35, y: 0.3170305, z: 0.21568868}
-  m_Center: {x: -0.0000001937151, y: 0.16162942, z: 0}
---- !u!1 &8996043081238492729
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1551828097517563420}
-  - component: {fileID: 8614118097440926579}
-  - component: {fileID: 9184174695355059717}
+  - component: {fileID: 2555965309140018762}
+  - component: {fileID: 1585800327708353013}
+  - component: {fileID: 7402056288072677650}
   m_Layer: 0
   m_Name: BasketTrigger
   m_TagString: Untagged
@@ -122,28 +49,28 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1551828097517563420
+--- !u!4 &2555965309140018762
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8996043081238492729}
+  m_GameObject: {fileID: 6380300244366770394}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: -0.0000001937151, y: 0.24088705, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 352581250655710789}
+  m_Father: {fileID: 8087356193274368556}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!65 &8614118097440926579
+--- !u!65 &1585800327708353013
 BoxCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8996043081238492729}
+  m_GameObject: {fileID: 6380300244366770394}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -158,29 +85,102 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.28, y: 0.1902183, z: 0.17255095}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &9184174695355059717
+--- !u!114 &7402056288072677650
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8996043081238492729}
+  m_GameObject: {fileID: 6380300244366770394}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e858d3202aadf4778a99373f255a612f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VRShop.BasketTrigger
-  basketRoot: {fileID: 352581250655710789}
-  itemContainer: {fileID: 2229100257013664648}
+  basketRoot: {fileID: 8087356193274368556}
+  itemContainer: {fileID: 3887165394104910782}
   itemSpacing: {x: 0.08, y: 0.06, z: 0.08}
   maxItemsPerRow: 3
---- !u!1001 &1410808033029730844
+--- !u!1 &6416373992710182944
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8087356193274368556}
+  - component: {fileID: 8463227649618124963}
+  - component: {fileID: 2022176117556341291}
+  m_Layer: 0
+  m_Name: Basket
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8087356193274368556
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6416373992710182944}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 8408545738639843393}
+  - {fileID: 3887165394104910782}
+  - {fileID: 2555965309140018762}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8463227649618124963
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6416373992710182944}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71a09b45af01b432aad76cfda36ea2c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VRShop.BasketAttachment
+  anchor: {fileID: 0}
+  basketRoot: {fileID: 8087356193274368556}
+  positionOffset: {x: 0, y: 0, z: 0}
+  rotationOffset: {x: 0, y: 0, z: 0}
+--- !u!65 &2022176117556341291
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6416373992710182944}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.35, y: 0.3170305, z: 0.21568868}
+  m_Center: {x: -0.0000001937151, y: 0.16162942, z: 0}
+--- !u!1001 &8303404825261754282
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 352581250655710789}
+    m_TransformParent: {fileID: 8087356193274368556}
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 77f900917fe6d4203b1560e55129a2da, type: 3}
       propertyPath: m_LocalScale.x
@@ -243,8 +243,8 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 77f900917fe6d4203b1560e55129a2da, type: 3}
---- !u!4 &1449749044212291063 stripped
+--- !u!4 &8408545738639843393 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 77f900917fe6d4203b1560e55129a2da, type: 3}
-  m_PrefabInstance: {fileID: 1410808033029730844}
+  m_PrefabInstance: {fileID: 8303404825261754282}
   m_PrefabAsset: {fileID: 0}
