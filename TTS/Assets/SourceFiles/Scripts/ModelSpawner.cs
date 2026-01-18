@@ -124,20 +124,20 @@ public class ModelSpawner : MonoBehaviour
 {
     [Header("Shopify Store Configuration")]
     [Tooltip("Shopify store domain (e.g., 'hydrogen-preview.myshopify.com' or 'legoheaven.myshopify.com')")]
-    public string storeDomain = "hydrogen-preview.myshopify.com";
+    public string storeDomain = "legoheaven.myshopify.com";
     
     [Tooltip("Shopify Storefront API Access Token")]
-    public string storefrontAccessToken = "3b580e70970c4528da70c98e097c2fa0";
+    public string storefrontAccessToken = "";
     
     [Tooltip("Maximum number of products to fetch and display")]
-    public int maxProducts = 16;
+    public int maxProducts = 8;
 
     [Header("Spawn Settings")]
     [Tooltip("Distance from center to left/right product rows")]
     public float sideDistance = 5f;
     
     [Tooltip("Spacing between products in the same row")]
-    public float rowSpacing = 3f;
+    public float rowSpacing = 6f;
     
     [Tooltip("Distance between front and back rows")]
     public float rowDepth = 8f;
@@ -145,15 +145,18 @@ public class ModelSpawner : MonoBehaviour
     [Tooltip("Height offset from origin (Y position)")]
     public float heightOffset = 0f;
     
-    [Tooltip("Number of products per side per row (default: 4)")]
-    public int productsPerSidePerRow = 4;
+    [Tooltip("Number of products per side per row (default: 2)")]
+    public int productsPerSidePerRow = 2;
 
     [Header("Display Settings")]
-    [Tooltip("Size of the product display plane")]
-    public Vector2 displaySize = new Vector2(2f, 2f);
+    [Tooltip("Size of the product image (width x height)")]
+    public Vector2 imageSize = new Vector2(1.5f, 1.5f);
     
-    [Tooltip("Distance between product displays")]
-    public float spacing = 3f;
+    [Tooltip("Billboard width")]
+    public float billboardWidth = 2.5f;
+    
+    [Tooltip("Billboard height")]
+    public float billboardHeight = 4f;
     
     [Tooltip("Show product title text")]
     public bool showTitle = true;
@@ -163,6 +166,12 @@ public class ModelSpawner : MonoBehaviour
     
     [Tooltip("Show product description")]
     public bool showDescription = true;
+    
+    [Tooltip("Maximum description length before wrapping")]
+    public int maxDescriptionLength = 150;
+    
+    [Tooltip("Vertical offset to move all display elements up")]
+    public float verticalOffset = 2f;
 
     private List<GameObject> spawnedProductDisplays = new List<GameObject>();
     private bool isLoading = false;
@@ -194,8 +203,9 @@ public class ModelSpawner : MonoBehaviour
 
         Debug.Log($"\n✅ Fetched {products.Count} products from Shopify");
 
-        // Spawn product displays
-        for (int i = 0; i < products.Count; i++)
+        // Spawn product displays - limit to 12 products (6 per side)
+        int productsToSpawn = Mathf.Min(products.Count, 12);
+        for (int i = 0; i < productsToSpawn; i++)
         {
             StartCoroutine(SpawnProductDisplay(products[i], i));
         }
@@ -499,60 +509,130 @@ public class ModelSpawner : MonoBehaviour
                 }
             }
 
-            // Extract featured image URL
+            // Extract all image URLs and debug print them
+            // Use a much larger search limit for images since they might be further in the JSON
+            int imageSearchLimit = Mathf.Min(nodeStartIndex + 10000, json.Length);
+            string productName = string.IsNullOrEmpty(product.title) ? "Unknown Product" : product.title;
+            List<string> allImageUrls = new List<string>();
+            
+            // Extract featured image URL - search with larger limit
             int featuredImageIndex = json.IndexOf("\"featuredImage\"", nodeStartIndex);
-            if (featuredImageIndex != -1 && featuredImageIndex < searchLimit)
+            if (featuredImageIndex != -1)
             {
-                int urlIndex = json.IndexOf("\"url\"", featuredImageIndex);
-                if (urlIndex != -1 && urlIndex < searchLimit)
+                Debug.Log($"[{productName}] Found 'featuredImage' at index {featuredImageIndex} (searchLimit: {imageSearchLimit})");
+                
+                // Check if featuredImage is null
+                int nullCheck = json.IndexOf("null", featuredImageIndex);
+                int colonAfterFeatured = json.IndexOf(":", featuredImageIndex);
+                if (nullCheck != -1 && colonAfterFeatured != -1 && nullCheck < colonAfterFeatured + 10)
                 {
-                    int colonIndex = json.IndexOf(":", urlIndex);
-                    if (colonIndex != -1 && colonIndex < searchLimit)
+                    Debug.LogWarning($"[{productName}] 'featuredImage' is null");
+                }
+                else if (featuredImageIndex < imageSearchLimit)
+                {
+                    int urlIndex = json.IndexOf("\"url\"", featuredImageIndex);
+                    if (urlIndex != -1 && urlIndex < imageSearchLimit)
                     {
-                        int quoteStart = json.IndexOf("\"", colonIndex) + 1;
-                        if (quoteStart > colonIndex && quoteStart < searchLimit)
+                        int colonIndex = json.IndexOf(":", urlIndex);
+                        if (colonIndex != -1 && colonIndex < imageSearchLimit)
                         {
-                            int quoteEnd = json.IndexOf("\"", quoteStart);
-                            if (quoteEnd != -1 && quoteEnd < searchLimit)
+                            int quoteStart = json.IndexOf("\"", colonIndex) + 1;
+                            if (quoteStart > colonIndex && quoteStart < imageSearchLimit)
                             {
-                                product.imageUrl = json.Substring(quoteStart, quoteEnd - quoteStart);
+                                int quoteEnd = json.IndexOf("\"", quoteStart);
+                                if (quoteEnd != -1 && quoteEnd < imageSearchLimit)
+                                {
+                                    product.imageUrl = json.Substring(quoteStart, quoteEnd - quoteStart);
+                                    allImageUrls.Add(product.imageUrl);
+                                    Debug.Log($"[{productName}] Featured Image URL: {product.imageUrl}");
+                                }
+                                else
+                                {
+                                    Debug.LogWarning($"[{productName}] Could not find closing quote for featuredImage URL");
+                                }
+                            }
+                            else
+                            {
+                                Debug.LogWarning($"[{productName}] Could not find opening quote for featuredImage URL");
                             }
                         }
+                        else
+                        {
+                            Debug.LogWarning($"[{productName}] Could not find colon after 'url' in featuredImage");
+                        }
                     }
+                    else
+                    {
+                        Debug.LogWarning($"[{productName}] Could not find 'url' field in featuredImage (searched up to index {imageSearchLimit})");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"[{productName}] 'featuredImage' found but beyond search limit ({featuredImageIndex} >= {imageSearchLimit})");
                 }
             }
             else
             {
-                // Try to get from images array (but limit search to avoid nested nodes)
-                int imagesIndex = json.IndexOf("\"images\"", nodeStartIndex);
-                if (imagesIndex != -1 && imagesIndex < searchLimit)
+                Debug.Log($"[{productName}] 'featuredImage' not found in JSON");
+            }
+            
+            // Extract all images from images array - search with larger limit
+            int imagesIndex = json.IndexOf("\"images\"", nodeStartIndex);
+            if (imagesIndex != -1)
+            {
+                Debug.Log($"[{productName}] Found 'images' at index {imagesIndex} (searchLimit: {imageSearchLimit})");
+                if (imagesIndex < imageSearchLimit)
                 {
-                    int edgesIndex = json.IndexOf("\"edges\"", imagesIndex);
-                    if (edgesIndex != -1 && edgesIndex < searchLimit)
+                    List<string> imageUrls = ExtractAllImageUrls(json, imagesIndex, imageSearchLimit);
+                    foreach (string url in imageUrls)
                     {
-                        int firstNodeIndex = json.IndexOf("\"node\"", edgesIndex);
-                        if (firstNodeIndex != -1 && firstNodeIndex < searchLimit)
+                        if (!allImageUrls.Contains(url))
                         {
-                            int urlIndex = json.IndexOf("\"url\"", firstNodeIndex);
-                            if (urlIndex != -1 && urlIndex < searchLimit)
-                            {
-                                int colonIndex = json.IndexOf(":", urlIndex);
-                                if (colonIndex != -1 && colonIndex < searchLimit)
-                                {
-                                    int quoteStart = json.IndexOf("\"", colonIndex) + 1;
-                                    if (quoteStart > colonIndex && quoteStart < searchLimit)
-                                    {
-                                        int quoteEnd = json.IndexOf("\"", quoteStart);
-                                        if (quoteEnd != -1 && quoteEnd < searchLimit)
-                                        {
-                                            product.imageUrl = json.Substring(quoteStart, quoteEnd - quoteStart);
-                                        }
-                                    }
-                                }
-                            }
+                            allImageUrls.Add(url);
                         }
                     }
+                    
+                    if (imageUrls.Count > 0)
+                    {
+                        Debug.Log($"[{productName}] Found {imageUrls.Count} image(s) in images array:");
+                        for (int i = 0; i < imageUrls.Count; i++)
+                        {
+                            Debug.Log($"[{productName}]   Image {i + 1}: {imageUrls[i]}");
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"[{productName}] 'images' array found but no URLs extracted");
+                    }
+                    
+                    // Set imageUrl from images array if featured image wasn't found
+                    if (string.IsNullOrEmpty(product.imageUrl) && imageUrls.Count > 0)
+                    {
+                        product.imageUrl = imageUrls[0];
+                    }
                 }
+                else
+                {
+                    Debug.LogWarning($"[{productName}] 'images' found but beyond search limit ({imagesIndex} >= {imageSearchLimit})");
+                }
+            }
+            else
+            {
+                Debug.Log($"[{productName}] 'images' not found in JSON");
+            }
+            
+            // Debug print summary of all image URLs for this product
+            if (allImageUrls.Count > 0)
+            {
+                Debug.Log($"[{productName}] === TOTAL IMAGE URLs: {allImageUrls.Count} ===");
+                for (int i = 0; i < allImageUrls.Count; i++)
+                {
+                    Debug.Log($"[{productName}]   URL {i + 1}/{allImageUrls.Count}: {allImageUrls[i]}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[{productName}] No image URLs found for this product!");
             }
 
             // Extract ID
@@ -583,6 +663,115 @@ public class ModelSpawner : MonoBehaviour
         return product;
     }
 
+    List<string> ExtractAllImageUrls(string json, int imagesStartIndex, int searchLimit)
+    {
+        List<string> imageUrls = new List<string>();
+        
+        try
+        {
+            // Find the edges array within images
+            int edgesIndex = json.IndexOf("\"edges\"", imagesStartIndex);
+            if (edgesIndex == -1 || edgesIndex >= searchLimit)
+                return imageUrls;
+            
+            // Find the opening bracket of the edges array
+            int edgesArrayStart = json.IndexOf("[", edgesIndex);
+            if (edgesArrayStart == -1 || edgesArrayStart >= searchLimit)
+                return imageUrls;
+            
+            // Parse each edge in the edges array
+            int currentIndex = edgesArrayStart + 1;
+            int maxIterations = 20; // Safety limit for images
+            int iterationCount = 0;
+            
+            while (iterationCount < maxIterations && currentIndex < searchLimit && currentIndex < json.Length)
+            {
+                iterationCount++;
+                
+                // Find the next edge object start
+                int edgeStart = json.IndexOf("{", currentIndex);
+                if (edgeStart == -1 || edgeStart >= searchLimit)
+                    break;
+                
+                // Find the "node" keyword within this edge
+                int nodeKeywordIndex = json.IndexOf("\"node\"", edgeStart);
+                if (nodeKeywordIndex == -1 || nodeKeywordIndex >= searchLimit || nodeKeywordIndex > edgeStart + 100)
+                {
+                    currentIndex = edgeStart + 1;
+                    continue;
+                }
+                
+                // Find the opening brace of the node object
+                int nodeObjectStart = json.IndexOf("{", nodeKeywordIndex);
+                if (nodeObjectStart == -1 || nodeObjectStart >= searchLimit)
+                {
+                    currentIndex = nodeKeywordIndex + 6;
+                    continue;
+                }
+                
+                // Extract URL from this node
+                int urlIndex = json.IndexOf("\"url\"", nodeObjectStart);
+                if (urlIndex != -1 && urlIndex < searchLimit)
+                {
+                    int colonIndex = json.IndexOf(":", urlIndex);
+                    if (colonIndex != -1 && colonIndex < searchLimit)
+                    {
+                        int quoteStart = json.IndexOf("\"", colonIndex) + 1;
+                        if (quoteStart > colonIndex && quoteStart < searchLimit)
+                        {
+                            int quoteEnd = json.IndexOf("\"", quoteStart);
+                            if (quoteEnd != -1 && quoteEnd < searchLimit)
+                            {
+                                string url = json.Substring(quoteStart, quoteEnd - quoteStart);
+                                if (!string.IsNullOrEmpty(url) && !imageUrls.Contains(url))
+                                {
+                                    imageUrls.Add(url);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Find the closing brace of this edge object to advance
+                int braceDepth = 0;
+                int searchIndex = edgeStart;
+                int edgeEnd = -1;
+                
+                while (searchIndex < searchLimit && searchIndex < json.Length && searchIndex < edgeStart + 5000)
+                {
+                    if (json[searchIndex] == '{')
+                        braceDepth++;
+                    else if (json[searchIndex] == '}')
+                    {
+                        braceDepth--;
+                        if (braceDepth == 0)
+                        {
+                            edgeEnd = searchIndex;
+                            break;
+                        }
+                    }
+                    searchIndex++;
+                }
+                
+                if (edgeEnd != -1)
+                {
+                    currentIndex = edgeEnd + 1;
+                }
+                else
+                {
+                    // Couldn't find closing brace, advance safely
+                    currentIndex = edgeStart + 1000;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"Error extracting image URLs: {e.Message}");
+        }
+        
+        return imageUrls;
+    }
+
     string GetCurrencySymbol(string currencyCode)
     {
         switch (currencyCode.ToUpper())
@@ -601,25 +790,35 @@ public class ModelSpawner : MonoBehaviour
     {
         // Calculate spawn position
         Vector3 spawnPosition = GetSpawnPosition(index);
+        Debug.Log($"Spawning product {index} '{product.title}' at position {spawnPosition}");
         
         // Create main display object
         GameObject displayObject = new GameObject($"ProductDisplay_{product.title}");
         displayObject.transform.position = spawnPosition;
         
-        // Create plane for product image
-        GameObject imagePlane = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        imagePlane.transform.parent = displayObject.transform;
-        imagePlane.transform.localPosition = Vector3.zero;
-        imagePlane.transform.localScale = new Vector3(displaySize.x / 10f, 1f, displaySize.y / 10f);
-        imagePlane.name = "ImagePlane";
+        // Billboard background removed to prevent purple blocks
         
-        // Remove collider if not needed
-        Destroy(imagePlane.GetComponent<Collider>());
+        // Create vertical quad for product image - left aligned at top
+        GameObject imageQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        imageQuad.transform.parent = displayObject.transform;
+        // Position left-aligned: start from left edge, offset by half image width
+        float leftEdgeX = -billboardWidth / 2f;
+        float imageX = leftEdgeX + imageSize.x / 2f;
+        float imageY = billboardHeight / 2f - imageSize.y / 2f + verticalOffset; // Top of billboard, accounting for image height, plus vertical offset
+        imageQuad.transform.localPosition = new Vector3(imageX, imageY, 0.01f);
+        imageQuad.transform.localScale = new Vector3(imageSize.x, imageSize.y, 1f);
+        imageQuad.name = "ProductImage";
+        Destroy(imageQuad.GetComponent<Collider>());
         
-        // Load and apply product image
+        // Load and apply product image (frame will be created after image loads to match aspect ratio)
         if (!string.IsNullOrEmpty(product.imageUrl))
         {
-            yield return StartCoroutine(LoadProductImage(product.imageUrl, imagePlane));
+            yield return StartCoroutine(LoadProductImage(product.imageUrl, imageQuad));
+        }
+        else
+        {
+            // Create frame even if no image
+            CreateImageFrame(imageQuad, imageSize);
         }
         
         // Create text display for product info
@@ -630,19 +829,25 @@ public class ModelSpawner : MonoBehaviour
         bool isLeftSide = spawnPosition.x < 0;
         if (isLeftSide)
         {
-            // Face right (toward center)
-            displayObject.transform.rotation = Quaternion.Euler(0, 90, 0);
+            // Face right (toward center) - flipped direction
+            displayObject.transform.rotation = Quaternion.Euler(0, -90, 0);
         }
         else
         {
-            // Face left (toward center)
-            displayObject.transform.rotation = Quaternion.Euler(0, -90, 0);
+            // Face left (toward center) - flipped direction
+            displayObject.transform.rotation = Quaternion.Euler(0, 90, 0);
         }
         
         spawnedProductDisplays.Add(displayObject);
     }
 
-    IEnumerator LoadProductImage(string imageUrl, GameObject plane)
+    void CreateImageFrame(GameObject imageQuad, Vector2 imageSize)
+    {
+        // Frame disabled to prevent purple blocks
+        // If you want a frame, ensure proper shader/material setup
+    }
+    
+    IEnumerator LoadProductImage(string imageUrl, GameObject imageQuad)
     {
         if (string.IsNullOrEmpty(imageUrl))
         {
@@ -669,6 +874,21 @@ public class ModelSpawner : MonoBehaviour
                     texture.wrapMode = TextureWrapMode.Clamp;
                     texture.filterMode = FilterMode.Bilinear;
                     texture.anisoLevel = 1;
+                    
+                    // Preserve aspect ratio
+                    float aspectRatio = (float)texture.width / texture.height;
+                    Vector2 currentScale = imageQuad.transform.localScale;
+                    if (aspectRatio > 1f)
+                    {
+                        // Landscape: adjust height
+                        currentScale.y = currentScale.x / aspectRatio;
+                    }
+                    else
+                    {
+                        // Portrait: adjust width
+                        currentScale.x = currentScale.y * aspectRatio;
+                    }
+                    imageQuad.transform.localScale = new Vector3(currentScale.x, currentScale.y, 1f);
                     
                     // Try to use Unlit shader first (simpler, more reliable for images)
                     // Fall back to Standard if Unlit is not available
@@ -703,15 +923,19 @@ public class ModelSpawner : MonoBehaviour
                         material.renderQueue = -1;
                     }
                     
-                    Renderer renderer = plane.GetComponent<Renderer>();
+                    Renderer renderer = imageQuad.GetComponent<Renderer>();
                     if (renderer != null)
                     {
                         renderer.material = material;
+                        
+                        // Create frame after image is loaded with correct aspect ratio
+                        CreateImageFrame(imageQuad, currentScale);
+                        
                         Debug.Log($"Successfully loaded and applied image: {imageUrl} ({texture.width}x{texture.height})");
                     }
                     else
                     {
-                        Debug.LogError("Renderer component not found on plane!");
+                        Debug.LogError("Renderer component not found on image quad!");
                     }
                 }
                 else
@@ -730,37 +954,58 @@ public class ModelSpawner : MonoBehaviour
 
     void CreateProductInfoDisplay(GameObject parent, ShopifyProduct product)
     {
-        float yOffset = 1.2f;
+        // Calculate positions relative to billboard - all left-aligned
+        float billboardTop = billboardHeight / 2f;
+        float billboardBottom = -billboardHeight / 2f;
+        float leftEdgeX = -billboardWidth / 2f;
         
-        // Title
+        // Start from top, below image
+        // Image is at: billboardTop - imageSize.y/2, so text starts below it
+        float spacing = 0.4f;
+        float currentY = billboardTop - imageSize.y - spacing + verticalOffset; // Below image, plus vertical offset
+        
+        // Title (left-aligned, below image)
         if (showTitle && !string.IsNullOrEmpty(product.title))
         {
-            CreateTextObject(parent, product.title, new Vector3(0, yOffset, 0), 0.4f, Color.white);
-            yOffset += 0.4f;
+            CreateTextObject(parent, product.title, new Vector3(leftEdgeX, currentY, 0.02f), 0.35f, new Color(0.1f, 0.1f, 0.1f), 
+                new Vector2(billboardWidth * 0.9f, 0.4f), false);
+            currentY -= 0.35f;
         }
         
-        // Price
+        // Price (left-aligned, below title)
         if (showPrice && !string.IsNullOrEmpty(product.price))
         {
-            CreateTextObject(parent, product.price, new Vector3(0, yOffset, 0), 0.3f, Color.yellow);
-            yOffset += 0.3f;
+            CreateTextObject(parent, product.price, new Vector3(leftEdgeX, currentY, 0.02f), 0.2f, new Color(0.2f, 0.6f, 0.2f), 
+                new Vector2(billboardWidth * 0.9f, 0.35f), false);
+            currentY -= 0.3f;
         }
         
-        // Description
+        // Description (left-aligned, below price)
         if (showDescription && !string.IsNullOrEmpty(product.description))
         {
-            // Truncate long descriptions
             string desc = product.description;
-            if (desc.Length > 200)
-            {
-                desc = desc.Substring(0, 197) + "...";
-            }
-            CreateTextObject(parent, desc, new Vector3(0, yOffset, 0), 0.2f, Color.gray, new Vector2(3f, 1.5f));
-            yOffset += 1.5f;
+            
+            // Print original description
+            Debug.Log($"Product Description (Original): {product.title}\n{desc}");
+            
+            // Clean up description
+            desc = desc.Trim();
+            // No truncation - display full description with text wrapping
+            
+            // Print processed description
+            Debug.Log($"Product Description (Processed): {product.title}\n{desc}");
+            
+            // Calculate how much vertical space we have left
+            float availableHeight = currentY - billboardBottom + 0.2f;
+            float descHeight = Mathf.Min(availableHeight, 3.0f); // Increased max description height to show full descriptions
+            
+            // Position description top-aligned, starting right below price/title
+            CreateWrappedTextObject(parent, desc, new Vector3(leftEdgeX, currentY, 0.02f), 
+                0.09f, new Color(0.3f, 0.3f, 0.3f), new Vector2(billboardWidth * 0.85f, descHeight), false);
         }
     }
 
-    void CreateTextObject(GameObject parent, string text, Vector3 position, float fontSize, Color color, Vector2? backgroundSize = null)
+    void CreateTextObject(GameObject parent, string text, Vector3 position, float fontSize, Color color, Vector2? backgroundSize = null, bool hasBackground = false)
     {
         GameObject textObject = new GameObject("ProductInfo");
         textObject.transform.parent = parent.transform;
@@ -772,54 +1017,162 @@ public class ModelSpawner : MonoBehaviour
         TMPro.TextMeshPro textMesh = textObject.AddComponent<TMPro.TextMeshPro>();
         textMesh.text = text;
         textMesh.fontSize = fontSize;
-        textMesh.alignment = TMPro.TextAlignmentOptions.Center;
+        textMesh.alignment = TMPro.TextAlignmentOptions.Left;
         textMesh.color = color;
+        textMesh.enableWordWrapping = true;
+        if (backgroundSize.HasValue)
+        {
+            textMesh.rectTransform.sizeDelta = new Vector2(backgroundSize.Value.x, backgroundSize.Value.y);
+        }
         #else
         TextMesh textMesh = textObject.AddComponent<TextMesh>();
         textMesh.text = text;
         textMesh.fontSize = (int)(fontSize * 100);
-        textMesh.anchor = TextAnchor.MiddleCenter;
+        textMesh.anchor = TextAnchor.MiddleLeft;
         textMesh.color = color;
         textMesh.characterSize = 0.1f;
         #endif
         
-        // Add background
-        Vector2 bgSize = backgroundSize ?? new Vector2(2f, 0.5f);
-        GameObject background = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        background.transform.parent = textObject.transform;
-        background.transform.localPosition = new Vector3(0, 0, 0.01f);
-        background.transform.localScale = bgSize;
-        Material bgMaterial = new Material(Shader.Find("Standard"));
-        bgMaterial.color = new Color(0, 0, 0, 0.7f);
-        background.GetComponent<Renderer>().material = bgMaterial;
-        Destroy(background.GetComponent<Collider>());
+        // Background disabled to prevent purple blocks
+        // Text backgrounds removed to avoid shader/material issues
+    }
+    
+    void CreateWrappedTextObject(GameObject parent, string text, Vector3 position, float fontSize, Color color, Vector2 size, bool hasBackground = false)
+    {
+        GameObject textObject = new GameObject("ProductDescription");
+        textObject.transform.parent = parent.transform;
+        textObject.transform.localPosition = position;
+        textObject.transform.localRotation = Quaternion.identity;
+        
+        // Try to use TextMeshPro if available (better text wrapping)
+        #if TMP_PRESENT
+        TMPro.TextMeshPro textMesh = textObject.AddComponent<TMPro.TextMeshPro>();
+        textMesh.text = text;
+        textMesh.fontSize = fontSize;
+        textMesh.alignment = TMPro.TextAlignmentOptions.TopLeft;
+        textMesh.color = color;
+        textMesh.enableWordWrapping = true;
+        textMesh.rectTransform.sizeDelta = new Vector2(size.x, size.y);
+        textMesh.overflowMode = TMPro.TextOverflowModes.Truncate;
+        textMesh.wordSpacing = 0f; // Tight word spacing
+        textMesh.characterSpacing = 0f; // Tight character spacing
+        #else
+        // For regular TextMesh, manually wrap text - more aggressive wrapping
+        int maxCharsPerLine = (int)((size.x / (fontSize * 0.1f)) * 0.6f); // More aggressive: 60% of calculated width
+        maxCharsPerLine = Mathf.Max(maxCharsPerLine, 10); // Minimum 10 chars per line (reduced from 15)
+        text = WrapText(text, maxCharsPerLine);
+        TextMesh textMesh = textObject.AddComponent<TextMesh>();
+        textMesh.text = text;
+        textMesh.fontSize = (int)(fontSize * 100);
+        textMesh.anchor = TextAnchor.UpperLeft;
+        textMesh.color = color;
+        textMesh.characterSize = 0.1f;
+        #endif
+        
+        // Background disabled to prevent purple blocks
+        // Text backgrounds removed to avoid shader/material issues
+    }
+    
+    string WrapText(string text, int maxCharsPerLine)
+    {
+        if (string.IsNullOrEmpty(text) || maxCharsPerLine <= 0)
+            return text;
+        
+        string[] words = text.Split(' ');
+        System.Text.StringBuilder result = new System.Text.StringBuilder();
+        string currentLine = "";
+        
+        foreach (string word in words)
+        {
+            // More aggressive wrapping: wrap if adding this word would exceed 50% of max line length
+            int threshold = (int)(maxCharsPerLine * 0.5f);
+            
+            if (currentLine.Length + word.Length + 1 <= threshold)
+            {
+                if (currentLine.Length > 0)
+                    currentLine += " ";
+                currentLine += word;
+            }
+            else
+            {
+                // If current line is not empty, add it and start new line
+                if (currentLine.Length > 0)
+                {
+                    if (result.Length > 0)
+                        result.Append("\n");
+                    result.Append(currentLine);
+                }
+                
+                // If word itself is longer than max, try to break it (simple approach)
+                if (word.Length > maxCharsPerLine)
+                {
+                    // Break long word into chunks
+                    int startIndex = 0;
+                    while (startIndex < word.Length)
+                    {
+                        int chunkLength = Mathf.Min(maxCharsPerLine, word.Length - startIndex);
+                        string chunk = word.Substring(startIndex, chunkLength);
+                        if (result.Length > 0)
+                            result.Append("\n");
+                        result.Append(chunk);
+                        startIndex += chunkLength;
+                    }
+                    currentLine = "";
+                }
+                else
+                {
+                    currentLine = word;
+                }
+            }
+        }
+        
+        if (currentLine.Length > 0)
+        {
+            if (result.Length > 0)
+                result.Append("\n");
+            result.Append(currentLine);
+        }
+        
+        return result.ToString();
     }
 
     Vector3 GetSpawnPosition(int index)
     {
-        // Arrange 16 products in 2 rows with 8 products per side total
-        // Layout: 2 rows (front and back), 4 products per side per row
-        // Left side: indices 0-3 (front row), 8-11 (back row)
-        // Right side: indices 4-7 (front row), 12-15 (back row)
+        // Arrange products evenly spaced in 2 rows with left/right sides
+        // Layout: 2 rows (front and back), products per side per row
+        // Left side: indices 0-3 (front row), then back row
+        // Right side: indices 4-7 (front row), then back row
         
-        int productsPerRow = productsPerSidePerRow * 2; // 4 left + 4 right = 8 per row
+        int productsPerRow = productsPerSidePerRow * 2; // left + right per row
         int rowIndex = index / productsPerRow; // 0 = front row, 1 = back row
-        int positionInRow = index % productsPerRow; // 0-7 position within the row
+        int positionInRow = index % productsPerRow; // 0 to (productsPerRow-1)
         
         // Determine if left or right side
-        // Left: 0-3 in front row, 0-3 in back row (but index 8-11)
-        // Right: 4-7 in front row, 4-7 in back row (but index 12-15)
         bool isLeftSide = positionInRow < productsPerSidePerRow;
         
-        // Position within the side (0-3)
+        // Position within the side (0 to productsPerSidePerRow-1)
         int positionInSide = isLeftSide ? positionInRow : positionInRow - productsPerSidePerRow;
         
         // Calculate X position (negative for left, positive for right)
         float x = isLeftSide ? -sideDistance : sideDistance;
         
-        // Calculate Z position (front row is negative, back row is positive)
-        // Center products in the row
-        float zOffset = (positionInSide - (productsPerSidePerRow - 1) / 2f) * rowSpacing;
+        // Calculate Z position with perfectly even linear spacing
+        // Each product is spaced exactly rowSpacing units apart
+        // First product (positionInSide=0) at -span/2, last at +span/2
+        float zOffset;
+        if (productsPerSidePerRow <= 1)
+        {
+            // Single product: center it
+            zOffset = 0f;
+        }
+        else
+        {
+            // Multiple products: evenly space them
+            float totalSpan = (productsPerSidePerRow - 1) * rowSpacing;
+            zOffset = -totalSpan / 2f + (positionInSide * rowSpacing);
+        }
+        
+        // Apply row offset (front row negative, back row positive)
         float z = rowIndex == 0 ? -rowDepth / 2f + zOffset : rowDepth / 2f + zOffset;
         
         float y = heightOffset;
