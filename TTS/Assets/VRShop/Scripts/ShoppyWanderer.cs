@@ -37,8 +37,8 @@ namespace VRShop
         [Tooltip("Center of the wander area (usually shop center)")]
         [SerializeField] private Vector3 wanderCenter = Vector3.zero;
         
-        [Tooltip("Size of the wander area (X = width, Z = depth)")]
-        [SerializeField] private Vector2 wanderSize = new Vector2(8f, 8f);
+        [Tooltip("Size of the wander area (X = width, Z = depth). Should match floor size.")]
+        [SerializeField] private Vector2 wanderSize = new Vector2(9f, 9f); // Slightly smaller than 10x10 floor
         
         [Tooltip("Y position to keep the model at")]
         [SerializeField] private float groundHeight = 0f;
@@ -155,31 +155,51 @@ namespace VRShop
                 return;
             }
 
-            // Rotate towards target
+            // Rotate towards target (Y axis only - no tilting)
             if (direction.magnitude > 0.1f)
             {
-                Quaternion targetRotation = Quaternion.LookRotation(direction.normalized);
-                if (Mathf.Abs(headingOffsetDegrees) > 0.001f)
+                // Ensure direction is purely horizontal
+                Vector3 flatDirection = new Vector3(direction.x, 0f, direction.z).normalized;
+                if (flatDirection.sqrMagnitude > 0.001f)
                 {
-                    targetRotation *= Quaternion.Euler(0f, headingOffsetDegrees, 0f);
+                    Quaternion targetRotation = Quaternion.LookRotation(flatDirection);
+                    if (Mathf.Abs(headingOffsetDegrees) > 0.001f)
+                    {
+                        targetRotation *= Quaternion.Euler(0f, headingOffsetDegrees, 0f);
+                    }
+                    
+                    // Only interpolate Y rotation to prevent any tilting
+                    float currentY = GetCurrentRotation().eulerAngles.y;
+                    float targetY = targetRotation.eulerAngles.y;
+                    float newY = Mathf.LerpAngle(currentY, targetY, rotationSpeed * Time.fixedDeltaTime);
+                    SetCurrentRotation(Quaternion.Euler(0f, newY, 0f));
                 }
-                Quaternion newRotation = Quaternion.Slerp(GetCurrentRotation(), targetRotation, rotationSpeed * Time.fixedDeltaTime);
-                SetCurrentRotation(newRotation);
             }
 
             // Move towards target
             Vector3 movement = direction.normalized * walkSpeed * Time.fixedDeltaTime;
             MoveCurrentPosition(movement);
             
-             // Keep at ground height, then add optional bob
-             Vector3 grounded = SnapToFloor(GetCurrentPosition());
-             if (enableBodyBob && distance > 0.1f)
-             {
-                 // Use fixed time for consistent bob in physics updates
-                 float bob = Mathf.Sin(Time.fixedTime * bobFrequency * Mathf.PI * 2f) * bobAmplitude;
-                 grounded.y += bob;
-             }
-             SetCurrentPosition(grounded);
+            // Keep at ground height and ALWAYS clamp to bounds
+            Vector3 grounded = GetCurrentPosition();
+            grounded = ClampToBounds(grounded); // Hard clamp first
+            grounded = SnapToFloor(grounded);   // Then snap to floor height
+            grounded = ClampToBounds(grounded); // Clamp again after snap (belt and suspenders)
+            
+            if (enableBodyBob && distance > 0.1f)
+            {
+                // Use fixed time for consistent bob in physics updates
+                float bob = Mathf.Sin(Time.fixedTime * bobFrequency * Mathf.PI * 2f) * bobAmplitude;
+                grounded.y += bob;
+            }
+            SetCurrentPosition(grounded);
+            
+            // Force upright rotation (no tilting) every frame
+            Vector3 currentEuler = moveTransform.eulerAngles;
+            if (Mathf.Abs(currentEuler.x) > 1f || Mathf.Abs(currentEuler.z) > 1f)
+            {
+                moveTransform.rotation = Quaternion.Euler(0f, currentEuler.y, 0f);
+            }
             
             // Debug: Log movement occasionally
             if (Random.Range(0f, 1f) < 0.01f) // 1% chance per frame
@@ -201,6 +221,9 @@ namespace VRShop
         private void RedirectOnCollision(Collision collision)
         {
             if (collisionCooldownTimer > 0f) return;
+            
+            // Ignore floor and furniture collisions - only redirect for walls/obstacles
+            if (ShouldIgnoreCollider(collision.collider)) return;
 
             Vector3 away = Vector3.zero;
             if (collision.contactCount > 0)
@@ -219,9 +242,34 @@ namespace VRShop
         {
             if (collisionCooldownTimer > 0f) return;
             if (other == null) return;
+            
+            // Ignore floor and furniture collisions - only redirect for walls/obstacles
+            if (ShouldIgnoreCollider(other)) return;
 
             Vector3 away = (GetCurrentPosition() - other.transform.position);
             RedirectToNewTarget(away);
+        }
+        
+        private bool ShouldIgnoreCollider(Collider col)
+        {
+            if (col == null) return true;
+            
+            // Ignore the floor collider we use for snapping
+            if (col == floorCollider) return true;
+            if (col == movementBoundsCollider) return true;
+            
+            // Ignore floor and furniture by name
+            string name = col.gameObject.name.ToLower();
+            if (name.Contains("floor") || 
+                name.Contains("table") || 
+                name.Contains("shelf") ||
+                name.Contains("ceiling") ||
+                name.Contains("tile"))
+            {
+                return true;
+            }
+            
+            return false;
         }
 
         private void RedirectToNewTarget(Vector3 away)
@@ -244,9 +292,18 @@ namespace VRShop
         {
             Vector3 center = GetWanderCenter();
             Vector2 size = GetWanderSize();
-            float x = Random.Range(-size.x / 2f, size.x / 2f);
-            float z = Random.Range(-size.y / 2f, size.y / 2f);
-            return SnapToFloor(center + new Vector3(x, groundHeight, z));
+            
+            // Use smaller range to ensure we stay well within bounds
+            float padding = boundaryPadding + 0.5f; // Extra padding for safety
+            float halfX = Mathf.Max(0.5f, size.x / 2f - padding);
+            float halfZ = Mathf.Max(0.5f, size.y / 2f - padding);
+            
+            float x = Random.Range(-halfX, halfX);
+            float z = Random.Range(-halfZ, halfZ);
+            
+            Vector3 position = center + new Vector3(x, groundHeight, z);
+            position = ClampToBounds(position); // Always clamp
+            return SnapToFloor(position);
         }
 
         private Vector3 GetPositionInDirection(Vector3 direction, float distance)
@@ -303,6 +360,9 @@ namespace VRShop
             rb.isKinematic = true;
             rb.useGravity = false;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            
+            // Freeze rotation on X and Z to prevent tilting - only allow Y rotation (facing direction)
+            rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
 
             shoppyCollider = moveTransform.GetComponent<Collider>();
             if (shoppyCollider == null)
@@ -428,16 +488,29 @@ namespace VRShop
         private Vector3 ClampToBounds(Vector3 position)
         {
             Collider boundsCollider = GetBoundsCollider();
-            if (boundsCollider == null)
+            
+            float minX, maxX, minZ, maxZ;
+            
+            if (boundsCollider != null)
             {
-                return position;
+                Bounds bounds = boundsCollider.bounds;
+                minX = bounds.min.x + boundaryPadding;
+                maxX = bounds.max.x - boundaryPadding;
+                minZ = bounds.min.z + boundaryPadding;
+                maxZ = bounds.max.z - boundaryPadding;
             }
-
-            Bounds bounds = boundsCollider.bounds;
-            float minX = bounds.min.x + boundaryPadding;
-            float maxX = bounds.max.x - boundaryPadding;
-            float minZ = bounds.min.z + boundaryPadding;
-            float maxZ = bounds.max.z - boundaryPadding;
+            else
+            {
+                // Fallback to wanderSize centered at wanderCenter
+                Vector3 center = wanderCenter;
+                float halfX = wanderSize.x / 2f - boundaryPadding;
+                float halfZ = wanderSize.y / 2f - boundaryPadding;
+                minX = center.x - halfX;
+                maxX = center.x + halfX;
+                minZ = center.z - halfZ;
+                maxZ = center.z + halfZ;
+            }
+            
             position.x = Mathf.Clamp(position.x, minX, maxX);
             position.z = Mathf.Clamp(position.z, minZ, maxZ);
             return position;

@@ -85,6 +85,9 @@ namespace VRShop
 
         private void Start()
         {
+            // Auto-detect VR mode - disable mouse look if XR is active
+            AutoDetectVRMode();
+            
             // Initialize rotation from current transform
             Vector3 euler = transform.eulerAngles;
             _yaw = euler.y;
@@ -94,6 +97,48 @@ namespace VRShop
             if (_pitch > 180f) _pitch -= 360f;
 
             UpdateCursorState();
+        }
+
+        private void AutoDetectVRMode()
+        {
+            // Check if XR is active using multiple methods
+            bool xrActive = false;
+            
+            // Method 1: Check Unity XR Settings
+            #if UNITY_XR_MANAGEMENT
+            var xrSettings = UnityEngine.XR.XRSettings.isDeviceActive;
+            xrActive = xrSettings;
+            #endif
+            
+            // Method 2: Check for OVRManager (Meta Quest)
+            if (!xrActive)
+            {
+                var ovrManager = FindObjectOfType<OVRManager>();
+                if (ovrManager != null)
+                {
+                    xrActive = true;
+                }
+            }
+            
+            // Method 3: Check for OVRCameraRig
+            if (!xrActive)
+            {
+                var ovrCameraRig = FindObjectOfType<OVRCameraRig>();
+                if (ovrCameraRig != null)
+                {
+                    xrActive = true;
+                }
+            }
+            
+            if (xrActive)
+            {
+                vrModeEnabled = true;
+                Debug.Log("[StationaryCameraController] VR mode detected - disabling mouse look");
+                
+                // Unlock cursor in VR mode
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
         }
 
         private void OnEnable()

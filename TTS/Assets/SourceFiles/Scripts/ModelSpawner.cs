@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using System;
 using System.Text;
+using VRShop;
 
 // GraphQL Response Types
 [System.Serializable]
@@ -127,14 +128,14 @@ public class ModelSpawner : MonoBehaviour
     public string storeDomain = "legoheaven.myshopify.com";
     
     [Tooltip("Shopify Storefront API Access Token")]
-    public string storefrontAccessToken = "";
+    public string storefrontAccessToken = "3e2ce1095834bb3dfb2c092f29db57ab";
     
     [Tooltip("Maximum number of products to fetch and display")]
     public int maxProducts = 8;
 
     [Header("Spawn Settings")]
     [Tooltip("Distance from center to left/right product rows")]
-    public float sideDistance = 5f;
+    public float sideDistance = 2.5f;
     
     [Tooltip("Spacing between products in the same row")]
     public float rowSpacing = 6f;
@@ -796,6 +797,18 @@ public class ModelSpawner : MonoBehaviour
         GameObject displayObject = new GameObject($"ProductDisplay_{product.title}");
         displayObject.transform.position = spawnPosition;
         
+        // Add BasketItem component so the product can be grabbed in VR
+        var basketItem = displayObject.AddComponent<BasketItem>();
+        basketItem.itemId = product.id;
+        basketItem.displayName = product.title;
+        basketItem.price = ParsePrice(product.price);
+        basketItem.canBeCollected = true;
+        
+        // Add BoxCollider so the product can be grabbed and has physics
+        var boxCollider = displayObject.AddComponent<BoxCollider>();
+        boxCollider.size = new Vector3(imageSize.x, imageSize.y, 0.1f);
+        boxCollider.center = new Vector3(0, verticalOffset, 0);
+        
         // Billboard background removed to prevent purple blocks
         
         // Create vertical quad for product image - left aligned at top
@@ -839,6 +852,18 @@ public class ModelSpawner : MonoBehaviour
         }
         
         spawnedProductDisplays.Add(displayObject);
+    }
+
+    float ParsePrice(string priceString)
+    {
+        if (string.IsNullOrEmpty(priceString))
+            return 0f;
+        
+        // Remove currency symbols and parse
+        string cleaned = priceString.Replace("$", "").Replace(",", "").Trim();
+        if (float.TryParse(cleaned, out float price))
+            return price;
+        return 0f;
     }
 
     void CreateImageFrame(GameObject imageQuad, Vector2 imageSize)
