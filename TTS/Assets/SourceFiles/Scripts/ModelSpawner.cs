@@ -127,7 +127,7 @@ public class ModelSpawner : MonoBehaviour
     public string storeDomain = "legoheaven.myshopify.com";
     
     [Tooltip("Shopify Storefront API Access Token")]
-    public string storefrontAccessToken = "";
+    public string storefrontAccessToken = "3e2ce1095834bb3dfb2c092f29db57ab";
     
     [Tooltip("Maximum number of products to fetch and display")]
     public int maxProducts = 8;
