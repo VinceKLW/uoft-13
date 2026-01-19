@@ -6,7 +6,8 @@ Youtube: https://youtu.be/rSQTpfXWax8
 
 Devpost: https://devpost.com/software/sho-ify
 
-<img width="1540" height="643" alt="image" src="https://github.com/user-attachments/assets/17cbad58-2e03-4328-a425-e0f36ed63831" />
+![IMG_9465](https://github.com/user-attachments/assets/267ae8f1-b082-4814-aaca-e15234c7e2c3)
+
 ---
 
 ## 💡 Inspiration
