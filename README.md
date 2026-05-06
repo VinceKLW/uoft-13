@@ -10,6 +10,10 @@ Devpost: https://devpost.com/software/sho-ify
 
 ---
 
+<img width="1540" height="643" alt="image" src="https://github.com/user-attachments/assets/2ba6809d-2365-4b97-b4ce-e8ae8bb08609" />
+
+---
+
 ## 💡 Inspiration
 
 ### 🤓 Why Sho ify (not Shopify)
